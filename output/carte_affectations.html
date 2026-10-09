@@ -67,7 +67,16 @@ header.top .sub { color: var(--muted); font-size: 12.5px; }
 .sync.shared::before { background: var(--velo); }
 
 aside.filters { border-right: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
-.filters-scroll { overflow: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 14px; flex: 0 1 auto; max-height: 58%; border-bottom: 1px solid var(--line); }
+.fbar { padding: 12px 16px 10px; display: flex; flex-direction: column; gap: 8px; flex: none; border-bottom: 1px solid var(--line); }
+.ftoggle { display: flex; align-items: center; gap: 8px; width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 7px; padding: 7px 10px; cursor: pointer; font-weight: 600; font-size: 13px; text-align: left; }
+.ftoggle:hover { border-color: var(--accent); }
+.ftoggle .fcount { font-weight: 500; font-size: 12px; color: var(--accent); }
+.ftoggle .chev { margin-left: auto; transition: transform .15s; color: var(--muted); }
+.ftoggle[aria-expanded="false"] .chev { transform: rotate(-90deg); }
+.fclear { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; font-size: 12.5px; font-weight: 500; align-self: flex-start; }
+/* Les filtres gardent leur hauteur (défilement interne) : la liste prend le reste. */
+.filters-scroll { overflow: auto; padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 14px; flex: 0 0 auto; max-height: 60%; border-bottom: 1px solid var(--line); }
+aside.filters.collapsed .filters-scroll { display: none; }
 .fgroup { display: flex; flex-direction: column; gap: 6px; }
 .flabel { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
 .flabel output { font-family: var(--font-data); text-transform: none; letter-spacing: 0; color: var(--ink); font-weight: 500; }
@@ -84,7 +93,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .list-head { padding: 8px 16px; display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: var(--muted); }
 .list-head strong { font-family: var(--font-data); color: var(--ink); }
 .list-head select { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 2px 4px; font-size: 12px; }
-ul.sites { list-style: none; margin: 0; padding: 0 8px 12px; overflow: auto; flex: 1 1 auto; min-height: 120px; }
+ul.sites { list-style: none; margin: 0; padding: 0 8px 12px; overflow: auto; flex: 1 1 0; min-height: 0; }
 ul.sites li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 7px; cursor: pointer; }
 ul.sites li:hover { background: var(--chip); }
 ul.sites li[aria-selected="true"] { background: var(--chip); box-shadow: inset 2px 0 0 var(--accent); }
@@ -200,7 +209,11 @@ ol.emp small { color: var(--muted); }
   aside.filters { position: fixed; left: 0; right: 0; top: var(--hdr); bottom: var(--nav); z-index: 1100; border: 0; display: none; }
   body[data-mtab="filters"] aside.filters, body[data-mtab="list"] aside.filters, body[data-mtab="selection"] aside.filters { display: flex; }
   body[data-mtab="filters"] .list-head, body[data-mtab="filters"] ul.sites { display: none; }
-  body:not([data-mtab="filters"]) .filters-scroll { display: none; }
+  body:not([data-mtab="filters"]) .filters-scroll { display: none !important; }
+  body[data-mtab="filters"] .filters-scroll { display: flex !important; }
+  body[data-mtab="selection"] .fbar { display: none; }
+  .ftoggle, .fclear { display: none !important; }
+  .fbar { border-bottom: 0; padding-bottom: 4px; }
   .filters-scroll { max-height: none; flex: 1 1 auto; border: 0; padding-bottom: 24px; gap: 18px; }
   .chip { padding: 7px 13px; font-size: 14px; }
   input[type="search"] { font-size: 16px; padding: 11px 12px; }
@@ -255,8 +268,12 @@ ol.emp small { color: var(--muted); }
   </header>
 
   <aside class="filters">
-    <div class="filters-scroll">
+    <div class="fbar">
       <input type="search" id="q" placeholder="Rechercher une ville, une unité, un CMA…" aria-label="Rechercher">
+      <button class="ftoggle" id="ftoggle" type="button" aria-expanded="true" aria-controls="fpanel"><span>Filtres</span><span class="fcount" id="fcount"></span><span class="chev" aria-hidden="true">▾</span></button>
+      <button class="fclear" id="fclear" type="button" hidden>Effacer tous les filtres</button>
+    </div>
+    <div class="filters-scroll" id="fpanel">
       <div class="fgroup">
         <div class="flabel">Ma sélection</div>
         <div class="chips" id="f-statut"></div>
@@ -572,6 +589,15 @@ ol.emp small { color: var(--muted); }
   document.getElementById("q").addEventListener("input", e => { state.q = e.target.value.trim().toLowerCase(); renderAll(); });
   document.getElementById("f-confirmee").addEventListener("change", e => { state.confirmee = e.target.checked; renderAll(); });
   document.getElementById("sort").addEventListener("change", e => { state.sort = e.target.value; renderList(); });
+  const fside = document.querySelector("aside.filters"), ftoggle = document.getElementById("ftoggle");
+  const setFiltersOpen = open => {
+    fside.classList.toggle("collapsed", !open);
+    ftoggle.setAttribute("aria-expanded", String(open));
+    try { localStorage.setItem("ssa-filtres-ouverts", open ? "1" : "0"); } catch (e) {}
+  };
+  ftoggle.addEventListener("click", () => setFiltersOpen(fside.classList.contains("collapsed")));
+  try { if (localStorage.getItem("ssa-filtres-ouverts") === "0") setFiltersOpen(false); } catch (e) {}
+  document.getElementById("fclear").addEventListener("click", () => document.getElementById("reset").click());
   document.getElementById("reset").addEventListener("click", () => {
     state.q = ""; document.getElementById("q").value = "";
     state.statut = "tous"; state.armee.clear(); state.zone.clear(); state.type.clear();
@@ -739,6 +765,10 @@ ol.emp small { color: var(--muted); }
     });
     if (state.selected && markers.get(state.selected)) markers.get(state.selected).bringToFront();
     document.getElementById("count").textContent = current.length;
+    const nActive = (state.q ? 1 : 0) + (state.statut !== "tous" ? 1 : 0) + state.armee.size + state.zone.size + state.type.size
+      + (state.confirmee ? 1 : 0) + Object.keys(state.sliders).length;
+    document.getElementById("fcount").textContent = nActive ? `· ${nActive} actif${nActive > 1 ? "s" : ""}` : "";
+    document.getElementById("fclear").hidden = !nActive;
     renderList();
     if (state.view === "table") renderTable();
     renderDossier();
