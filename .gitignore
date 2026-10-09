@@ -1,0 +1,11 @@
+.env.local
+.venv/
+data/cache/
+data/raw/*
+!data/raw/sites_ssa.csv
+output/publication/
+output/sites.json
+.claude/
+supabase/.temp/
+.DS_Store
+__pycache__/

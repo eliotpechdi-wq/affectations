@@ -1,0 +1,36 @@
+# Garde la base Supabase (offre gratuite) éveillée : elle se met en pause après 7 jours sans activité.
+# GitHub suspend aussi les tâches planifiées d'un dépôt inactif depuis 60 jours :
+# le premier lundi du mois, la tâche enregistre donc la date du dernier passage dans le dépôt.
+name: Supabase anti-veille
+
+on:
+  schedule:
+    - cron: "17 6 * * 1,4"   # lundi et jeudi, 6 h 17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Interroger la base
+        run: |
+          URL=$(jq -r .supabase_url config.json)
+          KEY=$(jq -r .supabase_anon_key config.json)
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$URL/rest/v1/profils?select=nom&limit=1" -H "apikey: $KEY")
+          echo "Réponse Supabase : $code"
+          test "$code" = "200"
+      - name: Garder le dépôt actif
+        if: github.event_name == 'workflow_dispatch' || (github.event.schedule == '17 6 * * 1,4' && github.run_attempt == 1)
+        run: |
+          if [ "$(date -u +%u)" = "1" ] && [ "$(date -u +%d)" -le 7 ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            date -u +"%Y-%m-%dT%H:%M:%SZ" > .derniere-verification
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .derniere-verification
+            git commit -m "Vérification mensuelle de la base" || true
+            git push
+          fi

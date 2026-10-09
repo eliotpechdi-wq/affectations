@@ -1,0 +1,1005 @@
+<title>Carte des affectations SSA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>/*__LEAFLET_CSS__*/</style>
+<style>
+/* Layout: three-pane cockpit — filters + list | map (or comparison table) | site dossier. Stacks on phones. */
+:root {
+  --bg: #eef1ef;
+  --panel: #f8faf8;
+  --ink: #17222b;
+  --muted: #5b6871;
+  --line: #d3dbd8;
+  --accent: #1f5e57;
+  --accent-ink: #ffffff;
+  --sea: #dfe8ea;
+  --land: #f6f5ef;
+  --land-other: #e7e9e3;
+  --border-geo: #b9c2bd;
+  --velo: #2e9e5b;
+  --voiture: #e0b21c;
+  --keep: #c8901a;
+  --drop: #a24a3d;
+  --terre: #66762b;
+  --air: #2c69b0;
+  --marine: #0f7d86;
+  --gend: #6d4f9b;
+  --inter: #8a6a3a;
+  --sante: #b8353a;
+  --chip: #e3e9e6;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11181d; --panel: #172128; --ink: #e5ebe8; --muted: #9aa8ae; --line: #2b3940;
+    --accent: #5fb3a6; --accent-ink: #0d1a18; --sea: #0d1418; --land: #1f2b31; --land-other: #182227;
+    --border-geo: #36474f; --velo: #48c27a; --voiture: #f0c63e; --keep: #e5b04a; --drop: #d77b6c;
+    --terre: #9bb04a; --air: #6aa3e6; --marine: #3fb8c2; --gend: #a688d6; --inter: #c4a06a; --sante: #e2676b;
+    --chip: #22313a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11181d; --panel: #172128; --ink: #e5ebe8; --muted: #9aa8ae; --line: #2b3940;
+  --accent: #5fb3a6; --accent-ink: #0d1a18; --sea: #0d1418; --land: #1f2b31; --land-other: #182227;
+  --border-geo: #36474f; --velo: #48c27a; --voiture: #f0c63e; --keep: #e5b04a; --drop: #d77b6c;
+  --terre: #9bb04a; --air: #6aa3e6; --marine: #3fb8c2; --gend: #a688d6; --inter: #c4a06a; --sante: #e2676b;
+  --chip: #22313a; color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.45; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { height: 100%; display: grid; grid-template-columns: 330px minmax(0, 1fr) 400px; grid-template-rows: auto minmax(0, 1fr); }
+header.top { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+header.top h1 { font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: .02em; margin: 0; text-transform: uppercase; }
+header.top .sub { color: var(--muted); font-size: 12.5px; }
+.views { margin-left: auto; display: flex; gap: 4px; background: var(--chip); padding: 3px; border-radius: 8px; }
+.views button { border: 0; background: transparent; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-weight: 500; }
+.views button[aria-pressed="true"] { background: var(--panel); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.sync { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.sync::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.sync.shared::before { background: var(--velo); }
+
+aside.filters { border-right: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+.filters-scroll { overflow: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 14px; flex: 0 1 auto; max-height: 58%; border-bottom: 1px solid var(--line); }
+.fgroup { display: flex; flex-direction: column; gap: 6px; }
+.flabel { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
+.flabel output { font-family: var(--font-data); text-transform: none; letter-spacing: 0; color: var(--ink); font-weight: 500; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 3px 10px; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.chip[aria-pressed="true"] { background: var(--chip); border-color: var(--ink); }
+.chip .dot { width: 9px; height: 9px; border-radius: 50%; }
+input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+.reset { align-self: flex-start; border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; font-weight: 500; }
+
+.list-head { padding: 8px 16px; display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: var(--muted); }
+.list-head strong { font-family: var(--font-data); color: var(--ink); }
+.list-head select { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 2px 4px; font-size: 12px; }
+ul.sites { list-style: none; margin: 0; padding: 0 8px 12px; overflow: auto; flex: 1 1 auto; min-height: 120px; }
+ul.sites li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 7px; cursor: pointer; }
+ul.sites li:hover { background: var(--chip); }
+ul.sites li[aria-selected="true"] { background: var(--chip); box-shadow: inset 2px 0 0 var(--accent); }
+ul.sites .dot { width: 10px; height: 10px; border-radius: 50%; }
+ul.sites .nm { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+ul.sites .meta { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mark { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+.mark.keep { background: color-mix(in srgb, var(--keep) 22%, transparent); color: var(--ink); border: 1px solid var(--keep); }
+.mark.drop { color: var(--drop); border: 1px solid color-mix(in srgb, var(--drop) 50%, transparent); }
+.mark.ded { color: var(--muted); border: 1px dashed var(--line); font-weight: 500; }
+
+main.stage { position: relative; min-width: 0; min-height: 0; }
+#map { position: absolute; inset: 0; background: var(--sea); }
+.leaflet-container { font-family: var(--font-body); background: var(--sea); }
+.leaflet-control-zoom a { background: var(--panel) !important; color: var(--ink) !important; border-color: var(--line) !important; }
+.leaflet-tooltip { background: var(--panel); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 2px 6px rgba(0,0,0,.15); font-size: 12px; }
+.leaflet-tooltip-top::before { border-top-color: var(--line); }
+.city-label { background: transparent; border: 0; box-shadow: none; color: var(--muted); font-size: 11px; font-weight: 500; padding: 0; }
+.city-label::before { display: none; }
+.jump { position: absolute; z-index: 500; left: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 4px; max-width: calc(100% - 24px); }
+.jump button { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 4px 9px; font-size: 12px; cursor: pointer; }
+.legend { position: absolute; z-index: 500; right: 12px; top: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; display: grid; gap: 4px; }
+.legend .row { display: flex; align-items: center; gap: 7px; }
+.legend .sw { width: 14px; height: 14px; border-radius: 50%; }
+#table-view { position: absolute; inset: 0; z-index: 1000; overflow: auto; background: var(--bg); padding: 12px 16px; }
+table.cmp { border-collapse: collapse; font-size: 12.5px; min-width: 1100px; width: 100%; }
+table.cmp th { position: sticky; top: -12px; background: var(--panel); text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 8px; border-bottom: 1px solid var(--line); cursor: pointer; white-space: nowrap; }
+table.cmp th.num, table.cmp td.num { text-align: right; }
+table.cmp td:first-child { min-width: 230px; font-weight: 500; }
+table.cmp td { padding: 7px 8px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+table.cmp td.num { font-family: var(--font-data); }
+table.cmp tr:hover td { background: var(--chip); cursor: pointer; }
+.bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--accent); opacity: .55; vertical-align: middle; margin-left: 6px; }
+
+aside.dossier { border-left: 1px solid var(--line); background: var(--panel); overflow: auto; min-height: 0; }
+.d-empty { padding: 24px 20px; color: var(--muted); display: flex; flex-direction: column; gap: 14px; }
+.d-empty h2 { font-family: var(--font-display); color: var(--ink); font-size: 22px; margin: 0; text-transform: uppercase; }
+.kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.kpi { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.kpi b { display: block; font-family: var(--font-data); font-size: 20px; color: var(--ink); font-weight: 500; }
+.kpi span { font-size: 12px; }
+.d-head { padding: 16px 20px 12px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.d-head .eyebrow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; }
+.tag { padding: 1px 8px; border-radius: 4px; font-weight: 600; font-size: 11.5px; color: #fff; }
+.tag.light { background: var(--chip); color: var(--ink); font-weight: 500; }
+.d-head h2 { font-family: var(--font-display); font-size: 26px; line-height: 1.05; margin: 0; text-wrap: balance; font-weight: 700; }
+.d-head .units { color: var(--muted); font-size: 13px; }
+.actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.btn { border: 1px solid var(--line); background: var(--bg); border-radius: 7px; padding: 6px 12px; cursor: pointer; font-weight: 500; font-size: 13px; }
+.btn.keep[aria-pressed="true"] { background: var(--keep); border-color: var(--keep); color: #1b1408; }
+.btn.drop[aria-pressed="true"] { background: var(--drop); border-color: var(--drop); color: #fff; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+textarea#note { width: 100%; min-height: 54px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); padding: 6px 8px; resize: vertical; font-size: 13px; }
+.section { padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.section h3 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); font-weight: 600; }
+.access { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 10px; align-items: baseline; }
+.access .k { font-size: 12px; color: var(--muted); }
+.access .v { overflow: hidden; text-overflow: ellipsis; }
+.access .t { font-family: var(--font-data); font-size: 13px; text-align: right; white-space: nowrap; }
+.t.good { color: var(--velo); } .t.mid { color: var(--keep); } .t.bad { color: var(--drop); }
+.dual { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dual th { font-size: 11px; font-weight: 600; color: var(--muted); text-align: right; padding: 2px 0 4px 8px; }
+.dual th:first-child { text-align: left; padding-left: 0; }
+.dual td { padding: 3px 0; border-top: 1px dotted var(--line); }
+.dual td.n { text-align: right; font-family: var(--font-data); padding-left: 8px; font-variant-numeric: tabular-nums; }
+.zone-key { display: inline-flex; align-items: center; gap: 5px; }
+.zone-key i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.sector { font-weight: 600; }
+.metiers { font-size: 12.5px; color: var(--muted); }
+ol.emp { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+ol.emp small { color: var(--muted); }
+.src { font-size: 12px; color: var(--muted); }
+.src a { color: var(--accent); }
+.note-ro { font-size: 12px; color: var(--muted); }
+
+@media (max-width: 1100px) {
+  .app { grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; }
+  aside.dossier { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); max-height: 45vh; }
+}
+/* Profil et écran de connexion */
+.who { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 4px 12px 4px 4px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; font-size: 13px; }
+.avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: inline-grid; place-items: center; font-weight: 600; font-size: 12px; flex: none; }
+.login { position: fixed; inset: 0; z-index: 3000; background: var(--bg); display: grid; place-items: center; padding: 24px 16px; overflow: auto; }
+.login-card { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 18px; }
+.login-card .brand { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); font-size: 15px; }
+.login-card h2 { font-family: var(--font-display); font-size: 34px; line-height: 1; margin: 0; text-wrap: balance; }
+.login-card p { margin: 0; color: var(--muted); }
+.profiles { display: flex; flex-direction: column; gap: 8px; }
+.profiles button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 12px 14px; cursor: pointer; font-size: 16px; font-weight: 500; min-height: 56px; }
+.profiles button:hover { border-color: var(--accent); }
+.profiles .avatar { width: 34px; height: 34px; font-size: 14px; }
+.newprof { display: flex; gap: 8px; }
+.newprof input { flex: 1; min-width: 0; font-size: 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.btn-main { border: 0; background: var(--accent); color: var(--accent-ink); border-radius: 12px; padding: 12px 16px; font-weight: 600; font-size: 15px; cursor: pointer; min-height: 48px; }
+.btn-main:disabled { opacity: .45; cursor: not-allowed; }
+.login .hint { font-size: 12.5px; color: var(--muted); }
+.login .err { color: var(--drop); font-size: 13px; min-height: 1em; }
+
+/* Éléments propres au téléphone, masqués sur grand écran */
+.mnav, .sheet-handle, .apply-m { display: none; }
+
+@media (max-width: 720px) {
+  :root { --hdr: calc(54px + env(safe-area-inset-top, 0px)); --nav: calc(60px + env(safe-area-inset-bottom, 0px)); --peek: 230px; }
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  .app { display: block; height: 100%; }
+  header.top { position: fixed; top: 0; left: 0; right: 0; z-index: 1200; flex-wrap: nowrap; gap: 10px; height: var(--hdr); padding: env(safe-area-inset-top, 0px) 16px 0; }
+  header.top h1 { font-size: 20px; }
+  header.top .sub, .views, .sync { display: none; }
+  .who { margin-left: auto; }
+  main.stage { position: fixed; left: 0; right: 0; top: var(--hdr); bottom: var(--nav); }
+  #table-view { display: none; }
+
+  aside.filters { position: fixed; left: 0; right: 0; top: var(--hdr); bottom: var(--nav); z-index: 1100; border: 0; display: none; }
+  body[data-mtab="filters"] aside.filters, body[data-mtab="list"] aside.filters, body[data-mtab="selection"] aside.filters { display: flex; }
+  body[data-mtab="filters"] .list-head, body[data-mtab="filters"] ul.sites { display: none; }
+  body:not([data-mtab="filters"]) .filters-scroll { display: none; }
+  .filters-scroll { max-height: none; flex: 1 1 auto; border: 0; padding-bottom: 24px; gap: 18px; }
+  .chip { padding: 7px 13px; font-size: 14px; }
+  input[type="search"] { font-size: 16px; padding: 11px 12px; }
+  .toggle input { width: 20px; height: 20px; }
+  .apply-m { display: block; position: sticky; bottom: 0; width: 100%; margin-top: 4px; }
+  ul.sites { max-height: none; padding-bottom: 20px; }
+  ul.sites li { padding: 13px 10px; }
+  ul.sites .nm { font-size: 15px; }
+  .list-head { padding: 12px 16px; font-size: 13.5px; }
+
+  aside.dossier { position: fixed; left: 0; right: 0; bottom: var(--nav); z-index: 1150; height: calc(100% - var(--hdr) - var(--nav) - 10px); max-height: none;
+    border: 1px solid var(--line); border-bottom: 0; border-radius: 18px 18px 0 0; box-shadow: 0 -6px 24px rgba(0,0,0,.18);
+    transform: translateY(105%); transition: transform .28s ease; overflow: hidden; display: flex; flex-direction: column; }
+  body.sheet-peek aside.dossier { transform: translateY(calc(100% - var(--peek))); }
+  body.sheet-full aside.dossier { transform: translateY(0); }
+  body.sheet-full #dossier-body { overflow: auto; }
+  #dossier-body { overflow: hidden; flex: 1 1 auto; overscroll-behavior: contain; }
+  .sheet-handle { display: block; flex: none; width: 100%; height: 26px; border: 0; background: transparent; cursor: grab; position: relative; touch-action: none; }
+  .sheet-handle::after { content: ""; position: absolute; left: 50%; top: 9px; width: 42px; height: 5px; margin-left: -21px; border-radius: 3px; background: var(--line); }
+  .d-head { padding-top: 2px; }
+  .d-head h2 { font-size: 24px; }
+  .btn { padding: 11px 16px; font-size: 15px; flex: 1; }
+  .btn#b-close { flex: 0 0 auto; }
+  body.sheet-peek .jump, body.sheet-full .jump { display: none; }
+
+  .mnav { display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 1300; background: var(--panel); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); height: var(--nav); }
+  .mnav button { border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11.5px; font-weight: 500; color: var(--muted); cursor: pointer; position: relative; }
+  .mnav button svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .mnav button[aria-current="true"] { color: var(--accent); }
+  .mnav .badge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--keep); color: #1b1408; font-size: 10.5px; font-weight: 700; display: grid; place-items: center; }
+  .mnav .badge:empty { display: none; }
+  .legend { display: none; }
+  .jump { left: 10px; bottom: 10px; flex-wrap: nowrap; overflow-x: auto; max-width: calc(100% - 20px); scrollbar-width: none; }
+  .jump button { flex: none; padding: 7px 11px; font-size: 13px; }
+  .leaflet-control-zoom { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div>
+      <h1>Affectations SSA</h1>
+      <div class="sub" id="subtitle">Centres médicaux, antennes et hôpitaux des armées</div>
+    </div>
+    <span class="sync" id="sync">Choix enregistrés sur cet appareil</span>
+    <div class="views" role="group" aria-label="Affichage">
+      <button id="v-map" aria-pressed="true">Carte</button>
+      <button id="v-table" aria-pressed="false">Tableau comparatif</button>
+    </div>
+    <button class="who" id="who" type="button" aria-label="Changer de profil"><span class="avatar" id="who-av">?</span><span id="who-name">Profil</span></button>
+  </header>
+
+  <aside class="filters">
+    <div class="filters-scroll">
+      <input type="search" id="q" placeholder="Rechercher une ville, une unité, un CMA…" aria-label="Rechercher">
+      <div class="fgroup">
+        <div class="flabel">Ma sélection</div>
+        <div class="chips" id="f-statut"></div>
+      </div>
+      <div class="fgroup">
+        <div class="flabel">Armée soutenue</div>
+        <div class="chips" id="f-armee"></div>
+      </div>
+      <div class="fgroup">
+        <div class="flabel">Zone</div>
+        <div class="chips" id="f-zone"></div>
+      </div>
+      <div class="fgroup">
+        <div class="flabel">Type de structure</div>
+        <div class="chips" id="f-type"></div>
+      </div>
+      <div id="sliders"></div>
+      <label class="toggle"><input type="checkbox" id="f-confirmee"> Antennes confirmées par une source uniquement</label>
+      <button class="reset" id="reset">Réinitialiser les filtres</button>
+      <button class="btn-main apply-m" id="apply-m" type="button">Voir les lieux sur la carte</button>
+    </div>
+    <div class="list-head">
+      <span><strong id="count">0</strong> <span id="count-label">lieux affichés</span></span>
+      <label>Trier <select id="sort" aria-label="Trier la liste">
+        <option value="nom">par nom</option>
+        <option value="gare_tgv_min">TGV le plus proche</option>
+        <option value="prix_m2_zone_voiture">prix m² le plus bas</option>
+        <option value="creches_velo">crèches à vélo</option>
+        <option value="cinema_voiture">cinémas</option>
+        <option value="employeurs_50plus_voiture">employeurs ingénieur</option>
+        <option value="population_zone_velo">habitants à vélo</option>
+      </select></label>
+    </div>
+    <ul class="sites" id="list" role="listbox" aria-label="Lieux d'affectation"></ul>
+  </aside>
+
+  <main class="stage">
+    <div id="map" aria-label="Carte des lieux d'affectation"></div>
+    <div class="jump" id="jump"></div>
+    <div class="legend" id="legend"></div>
+    <div id="table-view" hidden></div>
+  </main>
+
+  <aside class="dossier" id="dossier" aria-label="Fiche du lieu">
+    <button class="sheet-handle" id="sheet-handle" type="button" aria-label="Agrandir ou réduire la fiche"></button>
+    <div id="dossier-body"></div>
+  </aside>
+</div>
+
+<nav class="mnav" id="mnav" aria-label="Navigation">
+  <button type="button" data-tab="map" aria-current="true"><svg viewBox="0 0 24 24"><path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5V4l-6 2.5L9 4Z"/><path d="M9 4v13M15 6.5v13"/></svg>Carte</button>
+  <button type="button" data-tab="list"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>Liste</button>
+  <button type="button" data-tab="selection"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/></svg>Ma sélection<span class="badge" id="badge"></span></button>
+  <button type="button" data-tab="filters"><svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z"/></svg>Filtres</button>
+</nav>
+
+<div class="login" id="login" hidden>
+  <div class="login-card">
+    <div class="brand">Affectations SSA</div>
+    <h2>Qui êtes-vous ?</h2>
+    <p>Choisissez votre profil pour retrouver les lieux que vous avez retenus et vos notes.</p>
+    <div class="profiles" id="profiles"></div>
+    <form class="newprof" id="newprof" autocomplete="off">
+      <input id="newname" name="newname" maxlength="30" placeholder="Votre prénom" aria-label="Nouveau profil : votre prénom">
+      <button class="btn-main" id="newbtn" type="submit" disabled>Créer</button>
+    </form>
+    <div class="err" id="login-err"></div>
+    <div class="hint" id="login-hint">Pas de mot de passe : chacun choisit simplement son prénom. Chaque profil garde ses propres choix.</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>window.APP_CONFIG = __CONFIG__;</script>
+<script id="data" type="application/json">__DATA__</script>
+<script id="geo-dep" type="application/json">__GEO_DEP__</script>
+<script id="geo-world" type="application/json">__GEO_WORLD__</script>
+<script>
+(function () {
+  const DATA = JSON.parse(document.getElementById("data").textContent);
+  const DEP = JSON.parse(document.getElementById("geo-dep").textContent);
+  const WORLD = JSON.parse(document.getElementById("geo-world").textContent);
+  const SITES = DATA.sites;
+  const R = DATA.rayons;
+  const byId = new Map(SITES.map(s => [s.id, s]));
+
+  const ARMEES = [
+    ["Terre", "--terre"], ["Air et Espace", "--air"], ["Marine", "--marine"],
+    ["Gendarmerie", "--gend"], ["Interarmées", "--inter"], ["Santé", "--sante"],
+  ];
+  const ZONES = ["Métropole", "Outre-mer", "Étranger"];
+  const TYPES = ["CMA", "Antenne médicale", "HIA"];
+  const STATUTS = [["tous", "Tous"], ["retenue", "Retenus"], ["aucun", "Non triés"], ["ecartee", "Écartés"]];
+  const SLIDERS = [
+    { key: "gare_tgv_min", label: "Gare TGV à moins de", unit: "min", min: 10, max: 120, step: 5, dir: "max" },
+    { key: "aeroport_min", label: "Aéroport à moins de", unit: "min", min: 10, max: 150, step: 5, dir: "max" },
+    { key: "grande_ville_min", label: "Ville > 80 000 hab. à moins de", unit: "min", min: 10, max: 150, step: 5, dir: "max" },
+    { key: "prix_m2_zone_voiture", label: "Prix m² (zone voiture) max", unit: "€", min: 1000, max: 8000, step: 250, dir: "max" },
+    { key: "creches_velo", label: "Crèches à vélo, au moins", unit: "", min: 0, max: 60, step: 1, dir: "min" },
+    { key: "cinema_voiture", label: "Cinémas en voiture, au moins", unit: "", min: 0, max: 30, step: 1, dir: "min" },
+    { key: "employeurs_50plus_voiture", label: "Employeurs ingé ≥50 sal., au moins", unit: "", min: 0, max: 300, step: 5, dir: "min" },
+  ];
+
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const armeeVar = a => (ARMEES.find(x => x[0] === a) || ["", "--inter"])[1];
+  const fmt = (v, unit = "") => v === null || v === undefined || Number.isNaN(v) ? "–" : Number(v).toLocaleString("fr-FR") + (unit ? " " + unit : "");
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // ------------------------------------------------------------ profils et choix
+  // Les choix (Retenu / Écarté / notes) sont rangés par profil. Si une base Supabase est
+  // configurée, ils y sont enregistrés ; sinon ils restent dans le navigateur.
+  const CFG = window.APP_CONFIG || {};
+  const SB = CFG.supabase_url && CFG.supabase_anon_key ? { url: CFG.supabase_url.replace(/\/$/, ""), key: CFG.supabase_anon_key } : null;
+  const ls = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  };
+  async function sb(path, opts = {}) {
+    const r = await fetch(SB.url + "/rest/v1/" + path, Object.assign({}, opts, {
+      headers: Object.assign({ apikey: SB.key, Authorization: "Bearer " + SB.key, "Content-Type": "application/json" }, opts.headers || {}),
+    }));
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const t = await r.text();
+    return t ? JSON.parse(t) : null;
+  }
+  const enc = encodeURIComponent;
+  let online = false;
+  const store = {
+    async profiles() {
+      const local = ls.get("ssa-profils", []);
+      if (!SB) return local;
+      try {
+        const rows = await sb("profils?select=nom&order=nom");
+        online = true;
+        const names = rows.map(r => r.nom);
+        local.forEach(n => { if (!names.includes(n)) names.push(n); });
+        ls.set("ssa-profils", names);
+        return names;
+      } catch (e) { online = false; return local; }
+    },
+    async create(nom) {
+      const local = ls.get("ssa-profils", []);
+      if (!local.includes(nom)) { local.push(nom); ls.set("ssa-profils", local); }
+      if (!SB) return;
+      try { await sb("profils", { method: "POST", headers: { Prefer: "resolution=ignore-duplicates" }, body: JSON.stringify({ nom }) }); online = true; }
+      catch (e) { online = false; }
+    },
+    async load(nom) {
+      const local = ls.get("ssa-sel:" + nom, {});
+      if (!SB) return local;
+      try {
+        // On renvoie d'abord ce qui n'a pas pu partir lors d'une coupure réseau.
+        const dirty = ls.get("ssa-dirty:" + nom, []);
+        for (const id of dirty) await store.push(nom, id, local[id]);
+        ls.set("ssa-dirty:" + nom, []);
+        const rows = await sb("choix?select=site_id,statut,note&profil=eq." + enc(nom));
+        online = true;
+        const sel = {};
+        rows.forEach(r => { sel[r.site_id] = { statut: r.statut || "", note: r.note || "" }; });
+        ls.set("ssa-sel:" + nom, sel);
+        return sel;
+      } catch (e) { online = false; return local; }
+    },
+    async push(nom, id, val) {
+      if (!val || (!val.statut && !val.note)) {
+        await sb("choix?profil=eq." + enc(nom) + "&site_id=eq." + enc(id), { method: "DELETE" });
+      } else {
+        await sb("choix?on_conflict=profil,site_id", {
+          method: "POST", headers: { Prefer: "resolution=merge-duplicates" },
+          body: JSON.stringify({ profil: nom, site_id: id, statut: val.statut || "", note: val.note || "", maj: new Date().toISOString() }),
+        });
+      }
+    },
+    async save(nom, id, val) {
+      ls.set("ssa-sel:" + nom, selection);
+      if (!SB) return;
+      try { await store.push(nom, id, val); online = true; }
+      catch (e) {
+        online = false;
+        const dirty = ls.get("ssa-dirty:" + nom, []);
+        if (!dirty.includes(id)) { dirty.push(id); ls.set("ssa-dirty:" + nom, dirty); }
+      }
+    },
+  };
+
+  let profil = ls.get("ssa-profil-courant", null);
+  let selection = {};
+
+  async function writeSel(id, patch) {
+    if (!profil) return;
+    const cur = Object.assign({ statut: "", note: "" }, selection[id] || {}, patch);
+    const empty = !cur.statut && !cur.note;
+    if (empty) delete selection[id]; else selection[id] = cur;
+    renderAll();
+    await store.save(profil, id, empty ? null : cur);
+    setSync();
+  }
+
+  function setSync() {
+    const el = document.getElementById("sync");
+    if (SB && online) { el.textContent = "Choix enregistrés en ligne"; el.classList.add("shared"); }
+    else if (SB) { el.textContent = "Hors ligne : choix gardés sur l'appareil"; el.classList.remove("shared"); }
+    else { el.textContent = "Choix enregistrés sur cet appareil"; el.classList.remove("shared"); }
+    const n = Object.values(selection).filter(v => v.statut === "retenue").length;
+    document.getElementById("badge").textContent = n ? String(n) : "";
+  }
+
+  const initials = n => n.trim().split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase();
+
+  async function useProfile(nom) {
+    profil = nom;
+    ls.set("ssa-profil-courant", nom);
+    document.getElementById("who-name").textContent = nom;
+    document.getElementById("who-av").textContent = initials(nom);
+    selection = ls.get("ssa-sel:" + nom, {});
+    document.getElementById("login").hidden = true;
+    renderAll();
+    selection = await store.load(nom);
+    setSync();
+    renderAll();
+  }
+
+  async function showLogin() {
+    const box = document.getElementById("login");
+    box.hidden = false;
+    const list = document.getElementById("profiles");
+    list.innerHTML = `<p class="hint">Chargement des profils…</p>`;
+    const names = await store.profiles();
+    list.innerHTML = names.length
+      ? names.map(n => `<button type="button" data-n="${esc(n)}"><span class="avatar">${esc(initials(n))}</span>${esc(n)}${n === profil ? ` <small style="color:var(--muted);margin-left:auto">actuel</small>` : ""}</button>`).join("")
+      : `<p class="hint">Aucun profil pour l'instant : créez le vôtre ci-dessous.</p>`;
+    list.querySelectorAll("button[data-n]").forEach(b => b.addEventListener("click", () => useProfile(b.dataset.n)));
+    document.getElementById("login-hint").textContent = SB
+      ? "Pas de mot de passe : chacun choisit son prénom. Vos choix sont enregistrés en ligne et vous suivent sur tous vos appareils."
+      : "Pas de mot de passe : chacun choisit son prénom. Vos choix restent dans ce navigateur.";
+    if (SB && !online) document.getElementById("login-err").textContent = "Connexion à la base impossible pour le moment : les profils de cet appareil restent utilisables.";
+  }
+
+  const newname = document.getElementById("newname"), newbtn = document.getElementById("newbtn");
+  newname.addEventListener("input", () => { newbtn.disabled = !newname.value.trim(); });
+  document.getElementById("newprof").addEventListener("submit", async e => {
+    e.preventDefault();
+    const nom = newname.value.trim().replace(/\s+/g, " ").slice(0, 30);
+    if (!nom) return;
+    const existing = ls.get("ssa-profils", []);
+    const first = existing.length === 0;
+    await store.create(nom);
+    // Reprend la sélection faite avant l'arrivée des profils, pour le premier profil créé.
+    const legacy = ls.get("ssa-selection-v1", null);
+    if (first && legacy && Object.keys(legacy).length) {
+      const sel = {};
+      Object.entries(legacy).forEach(([id, v]) => { sel[id] = { statut: v.statut || "", note: v.note || "" }; });
+      ls.set("ssa-sel:" + nom, sel);
+      ls.set("ssa-dirty:" + nom, Object.keys(sel));
+      try { localStorage.removeItem("ssa-selection-v1"); } catch (err) {}
+    }
+    newname.value = ""; newbtn.disabled = true;
+    useProfile(nom);
+  });
+  document.getElementById("who").addEventListener("click", showLogin);
+
+  // ------------------------------------------------------------ filtres
+  const state = {
+    q: "", statut: "tous", armee: new Set(), zone: new Set(), type: new Set(),
+    confirmee: false, sliders: {}, sort: "nom", selected: null, view: "map",
+  };
+  try { const v = localStorage.getItem("ssa-view"); if (v) state.view = v; } catch (e) {}
+
+  function chipGroup(id, items, setOrKey, single) {
+    const el = document.getElementById(id);
+    el.innerHTML = "";
+    items.forEach(it => {
+      const [val, label, color] = Array.isArray(it) ? it : [it, it];
+      const b = document.createElement("button");
+      b.className = "chip"; b.type = "button";
+      b.innerHTML = (color ? `<span class="dot" style="background:var(${color})"></span>` : "") + esc(label);
+      const sync = () => b.setAttribute("aria-pressed", single ? String(state[setOrKey] === val) : String(state[setOrKey].has(val)));
+      b.addEventListener("click", () => {
+        if (single) state[setOrKey] = val;
+        else state[setOrKey].has(val) ? state[setOrKey].delete(val) : state[setOrKey].add(val);
+        el.querySelectorAll(".chip").forEach(x => x._sync());
+        renderAll();
+      });
+      b._sync = sync; sync();
+      el.appendChild(b);
+    });
+  }
+  chipGroup("f-statut", STATUTS, "statut", true);
+  chipGroup("f-armee", ARMEES.filter(([a]) => SITES.some(s => s.armee_soutenue === a)).map(([a, v]) => [a, a, v]), "armee");
+  chipGroup("f-zone", ZONES.filter(z => SITES.some(s => s.zone === z)), "zone");
+  chipGroup("f-type", TYPES.filter(t => SITES.some(s => s.type_structure === t)), "type");
+
+  const slWrap = document.getElementById("sliders");
+  slWrap.style.display = "flex"; slWrap.style.flexDirection = "column"; slWrap.style.gap = "12px";
+  SLIDERS.forEach(sl => {
+    const g = document.createElement("div");
+    g.className = "fgroup";
+    const off = sl.dir === "max" ? sl.max : sl.min;
+    g.innerHTML = `<label class="flabel" for="sl-${sl.key}">${esc(sl.label)} <output id="o-${sl.key}"></output></label>
+      <input type="range" id="sl-${sl.key}" min="${sl.min}" max="${sl.max}" step="${sl.step}" value="${off}">`;
+    slWrap.appendChild(g);
+    const inp = g.querySelector("input"), out = g.querySelector("output");
+    const upd = () => {
+      const v = Number(inp.value);
+      const inactive = v === off;
+      out.textContent = inactive ? "tous" : (sl.unit === "€" ? fmt(v, "€") : v + (sl.unit ? " " + sl.unit : ""));
+      if (inactive) delete state.sliders[sl.key]; else state.sliders[sl.key] = v;
+    };
+    inp.addEventListener("input", () => { upd(); renderAll(); });
+    inp._reset = () => { inp.value = off; upd(); };
+    upd();
+  });
+
+  document.getElementById("q").addEventListener("input", e => { state.q = e.target.value.trim().toLowerCase(); renderAll(); });
+  document.getElementById("f-confirmee").addEventListener("change", e => { state.confirmee = e.target.checked; renderAll(); });
+  document.getElementById("sort").addEventListener("change", e => { state.sort = e.target.value; renderList(); });
+  document.getElementById("reset").addEventListener("click", () => {
+    state.q = ""; document.getElementById("q").value = "";
+    state.statut = "tous"; state.armee.clear(); state.zone.clear(); state.type.clear();
+    state.confirmee = false; document.getElementById("f-confirmee").checked = false;
+    document.querySelectorAll("#sliders input").forEach(i => i._reset());
+    document.querySelectorAll(".chips .chip").forEach(x => x._sync());
+    renderAll();
+  });
+
+  const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  function visible(s) {
+    const st = (selection[s.id] || {}).statut || "";
+    if (state.statut === "retenue" && st !== "retenue") return false;
+    if (state.statut === "ecartee" && st !== "ecartee") return false;
+    if (state.statut === "aucun" && st) return false;
+    if (state.armee.size && !state.armee.has(s.armee_soutenue)) return false;
+    if (state.zone.size && !state.zone.has(s.zone)) return false;
+    if (state.type.size && !state.type.has(s.type_structure)) return false;
+    if (state.confirmee && s.source_confiance !== "confirmee") return false;
+    for (const sl of SLIDERS) {
+      if (!(sl.key in state.sliders)) continue;
+      const v = s[sl.key];
+      if (v === null || v === undefined) return false;
+      if (sl.dir === "max" && v > state.sliders[sl.key]) return false;
+      if (sl.dir === "min" && v < state.sliders[sl.key]) return false;
+    }
+    if (state.q) {
+      const hay = norm([s.nom, s.commune, s.unites_soutenues, s.cma_rattachement, s.departement, s.grande_ville].join(" "));
+      if (!hay.includes(norm(state.q))) return false;
+    }
+    return true;
+  }
+
+  function sorted(list) {
+    const k = state.sort;
+    if (k === "nom") return list.sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+    const desc = ["creches_velo", "cinema_voiture", "employeurs_50plus_voiture", "population_zone_velo"].includes(k);
+    return list.sort((a, b) => {
+      const x = a[k], y = b[k];
+      if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
+      return desc ? y - x : x - y;
+    });
+  }
+
+  // ------------------------------------------------------------ carte
+  const map = L.map("map", { zoomControl: true, attributionControl: false, minZoom: 2, maxZoom: 13, zoomSnap: 0.5, worldCopyJump: true });
+  const geoStyle = () => ({
+    world: { color: css("--border-geo"), weight: 0.6, fillColor: css("--land-other"), fillOpacity: 1 },
+    dep: { color: css("--border-geo"), weight: 0.7, fillColor: css("--land"), fillOpacity: 1 },
+  });
+  map.createPane("geo"); map.getPane("geo").style.zIndex = 200;
+  map.createPane("zones"); map.getPane("zones").style.zIndex = 350;
+  const worldLayer = L.geoJSON(WORLD, { pane: "geo", style: () => geoStyle().world, interactive: false }).addTo(map);
+  const depLayer = L.geoJSON(DEP, { pane: "geo", style: () => geoStyle().dep, interactive: false }).addTo(map);
+
+  const cityLayer = L.layerGroup(), townLayer = L.layerGroup();
+  (DATA.villes || []).forEach(v => {
+    L.circleMarker([v[1], v[2]], { radius: v[3] === 1 ? 2.5 : 1.8, weight: 0, fillColor: css("--muted"), fillOpacity: .8, interactive: false })
+      .bindTooltip(v[0], { permanent: true, direction: "right", className: "city-label", offset: [3, 0] })
+      .addTo(v[3] === 1 ? cityLayer : townLayer);
+  });
+  const updCities = () => {
+    const z = map.getZoom();
+    z >= 6 ? cityLayer.addTo(map) : map.removeLayer(cityLayer);
+    z >= 9 ? townLayer.addTo(map) : map.removeLayer(townLayer);
+  };
+  map.on("zoomend", updCities);
+
+  const markers = new Map();
+  const siteLayer = L.layerGroup().addTo(map);
+  const focusLayer = L.layerGroup().addTo(map);
+
+  function markerStyle(s) {
+    const st = (selection[s.id] || {}).statut;
+    const sel = state.selected === s.id;
+    return {
+      radius: sel ? 9 : (s.type_structure === "CMA" || s.type_structure === "HIA" ? 6.5 : 5),
+      color: st === "retenue" ? css("--keep") : (sel ? css("--ink") : css("--panel")),
+      weight: st === "retenue" ? 3 : (sel ? 2.5 : 1.2),
+      fillColor: css(armeeVar(s.armee_soutenue)),
+      fillOpacity: st === "ecartee" ? 0.25 : 0.95,
+    };
+  }
+  SITES.forEach(s => {
+    const m = L.circleMarker([s.latitude, s.longitude], markerStyle(s));
+    m.bindTooltip(`<b>${esc(s.nom)}</b><br>${esc(s.commune || "")} · ${esc(s.armee_soutenue)}`, { direction: "top", offset: [0, -6] });
+    m.on("click", () => select(s.id, false));
+    markers.set(s.id, m);
+  });
+
+  const legend = document.getElementById("legend");
+  function renderLegend() {
+    legend.innerHTML = ARMEES.filter(([a]) => SITES.some(s => s.armee_soutenue === a))
+      .map(([a, v]) => `<div class="row"><span class="sw" style="background:var(${v})"></span>${esc(a)}</div>`).join("")
+      + `<div class="row"><span class="sw" style="background:transparent;border:3px solid var(--keep)"></span>Retenu</div>`
+      + `<div class="row"><span class="sw" style="background:color-mix(in srgb,var(--velo) 35%,transparent);border:1.5px solid var(--velo)"></span>30 min vélo</div>`
+      + `<div class="row"><span class="sw" style="background:color-mix(in srgb,var(--voiture) 25%,transparent);border:1.5px solid var(--voiture)"></span>30 min voiture</div>`;
+  }
+  renderLegend();
+
+  const JUMPS = [
+    ["Métropole", [[41.2, -5.3], [51.2, 9.6]]],
+    ["Antilles", [[14.3, -61.9], [16.6, -60.7]]],
+    ["Guyane", [[3.5, -54.6], [5.9, -51.5]]],
+    ["Réunion · Mayotte", [[-21.5, 44.9], [-12.5, 55.9]]],
+    ["Pacifique", [[-23.0, 163.5], [-16.5, 168.5]], "Nouvelle-Calédonie"],
+    ["Polynésie", [[-18.0, -150.0], [-17.4, -149.1]]],
+    ["Afrique · Golfe", [[-1, -18], [26, 56]]],
+  ];
+  const jump = document.getElementById("jump");
+  JUMPS.forEach(([label, b]) => {
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.textContent = label;
+    btn.addEventListener("click", () => map.fitBounds(b));
+    jump.appendChild(btn);
+  });
+  map.fitBounds(JUMPS[0][1]);
+  updCities();
+
+  function drawFocus(s) {
+    focusLayer.clearLayers();
+    if (!s) return;
+    const ll = [s.latitude, s.longitude];
+    L.circle(ll, { pane: "zones", radius: R.voiture * 1000, color: css("--voiture"), weight: 1.5, fillColor: css("--voiture"), fillOpacity: 0.16, interactive: false }).addTo(focusLayer);
+    L.circle(ll, { pane: "zones", radius: R.velo * 1000, color: css("--velo"), weight: 1.5, fillColor: css("--velo"), fillOpacity: 0.28, interactive: false }).addTo(focusLayer);
+
+    // Points culturels dans la zone voiture
+    const kind = { c: "Cinéma", s: "Salle de spectacle", m: "Musée / centre d'art" };
+    DATA.poi.forEach(p => {
+      if (map.distance(ll, [p[0], p[1]]) > R.voiture * 1000) return;
+      L.circleMarker([p[0], p[1]], { pane: "zones", radius: 2.6, weight: 0, fillColor: p[2] === "c" ? css("--sante") : css("--gend"), fillOpacity: .8 })
+        .bindTooltip(`${esc(p[3])}<br><small>${kind[p[2]]}</small>`).addTo(focusLayer);
+    });
+    // Employeurs
+    (s.employeurs || []).forEach(e => {
+      L.circleMarker([e.lat, e.lon], { pane: "zones", radius: 4.5, weight: 1.5, color: css("--ink"), fillColor: css("--panel"), fillOpacity: 1 })
+        .bindTooltip(`<b>${esc(e.nom)}</b><br>${esc(e.secteur)} · ${esc(e.effectif)} sal.`).addTo(focusLayer);
+    });
+    // Liaisons vers TGV / aéroport / grande ville
+    const links = [
+      ["gare_tgv", "Gare TGV", s.gare_tgv, s.gare_tgv_min],
+      ["aeroport", "Aéroport", s.aeroport, s.aeroport_min],
+      ["grande_ville", "Grande ville", s.grande_ville, s.grande_ville_min],
+    ];
+    links.forEach(([k, lab, name, min]) => {
+      const la = s[k + "_lat"], lo = s[k + "_lon"];
+      if (la == null || lo == null) return;
+      L.polyline([ll, [la, lo]], { pane: "zones", color: css("--ink"), weight: 1.2, dashArray: "4 5", opacity: .6, interactive: false }).addTo(focusLayer);
+      L.circleMarker([la, lo], { pane: "zones", radius: 6, weight: 2, color: css("--ink"), fillColor: css("--accent"), fillOpacity: 1 })
+        .bindTooltip(`${lab} : ${esc(name)}<br>≈ ${fmt(min, "min")} en voiture`, { direction: "top" }).addTo(focusLayer);
+    });
+  }
+
+  // ------------------------------------------------------------ rendu
+  let current = [];
+  function renderAll() {
+    current = SITES.filter(visible);
+    const vis = new Set(current.map(s => s.id));
+    markers.forEach((m, id) => {
+      const s = byId.get(id);
+      m.setStyle(markerStyle(s));
+      const show = vis.has(id) || state.selected === id;
+      if (show && !siteLayer.hasLayer(m)) siteLayer.addLayer(m);
+      if (!show && siteLayer.hasLayer(m)) siteLayer.removeLayer(m);
+    });
+    if (state.selected && markers.get(state.selected)) markers.get(state.selected).bringToFront();
+    document.getElementById("count").textContent = current.length;
+    renderList();
+    if (state.view === "table") renderTable();
+    renderDossier();
+  }
+
+  function renderList() {
+    const ul = document.getElementById("list");
+    const selMode = isMobile() && mtab === "selection";
+    const items = selMode
+      ? sorted(SITES.filter(s => (selection[s.id] || {}).statut === "retenue"))
+      : sorted(current.slice());
+    document.getElementById("count").textContent = items.length;
+    document.getElementById("count-label").textContent = selMode ? (items.length > 1 ? "lieux retenus" : "lieu retenu") : "lieux affichés";
+    if (selMode && !items.length) {
+      ul.innerHTML = `<li style="display:block;cursor:default;color:var(--muted);padding:20px 12px">Aucun lieu retenu pour l'instant. Ouvrez la fiche d'un lieu et touchez « Retenir » pour le retrouver ici.</li>`;
+      return;
+    }
+    ul.innerHTML = items.map(s => {
+      const st = (selection[s.id] || {}).statut;
+      const mark = st === "retenue" ? `<span class="mark keep">Retenu</span>` : st === "ecartee" ? `<span class="mark drop">Écarté</span>` : (s.source_confiance === "deduite" ? `<span class="mark ded" title="Antenne déduite de la présence d'une unité, à confirmer">à confirmer</span>` : "");
+      const extra = state.sort !== "nom" && s[state.sort] != null ? ` · ${fmt(s[state.sort])}` : "";
+      return `<li role="option" data-id="${esc(s.id)}" aria-selected="${state.selected === s.id}">
+        <span class="dot" style="background:var(${armeeVar(s.armee_soutenue)})"></span>
+        <span style="min-width:0"><div class="nm">${esc(s.nom)}</div><div class="meta">${esc(s.commune || "")}${s.departement ? " (" + esc(s.departement) + ")" : ""}${extra}</div></span>
+        ${mark}</li>`;
+    }).join("");
+  }
+  document.getElementById("list").addEventListener("click", e => {
+    const li = e.target.closest("li[data-id]");
+    if (li) select(li.dataset.id, true);
+  });
+
+  function select(id, fly) {
+    state.selected = id;
+    const s = byId.get(id);
+    if (state.view === "table") setView("map");
+    drawFocus(s);
+    if (isMobile()) { setTab("map"); setSheet("peek"); }
+    if (s && (fly || isMobile())) {
+      const pad = isMobile() ? { paddingTopLeft: [0, 0], paddingBottomRight: [0, 230] } : {};
+      map.flyToBounds(L.latLng(s.latitude, s.longitude).toBounds(R.voiture * 2300), Object.assign({ duration: 0.6 }, pad));
+    }
+    renderAll();
+    const li = document.querySelector(`#list li[data-id="${CSS.escape(id)}"]`);
+    if (li) li.scrollIntoView({ block: "nearest" });
+    document.getElementById("dossier-body").scrollTop = 0;
+  }
+
+  function tcls(min, good, bad) { if (min == null) return ""; return min <= good ? "good" : min <= bad ? "mid" : "bad"; }
+
+  function renderDossier() {
+    const el = document.getElementById("dossier-body");
+    const s = state.selected && byId.get(state.selected);
+    if (!s) {
+      const nKeep = Object.values(selection).filter(v => v.statut === "retenue").length;
+      const nDrop = Object.values(selection).filter(v => v.statut === "ecartee").length;
+      const conf = SITES.filter(x => x.source_confiance === "confirmee").length;
+      el.innerHTML = `<div class="d-empty">
+        <h2>Choisir un lieu</h2>
+        <p>Cliquez un point sur la carte ou un nom dans la liste pour ouvrir sa fiche. Le cercle <span class="zone-key"><i style="background:var(--velo)"></i>vert</span> couvre environ 30 minutes à vélo, le <span class="zone-key"><i style="background:var(--voiture)"></i>jaune</span> environ 30 minutes en voiture.</p>
+        <div class="kpis">
+          <div class="kpi"><b>${SITES.length}</b><span>lieux recensés</span></div>
+          <div class="kpi"><b>${current.length}</b><span>affichés avec les filtres</span></div>
+          <div class="kpi"><b>${nKeep}</b><span>retenus</span></div>
+          <div class="kpi"><b>${nDrop}</b><span>écartés</span></div>
+        </div>
+        <p class="src">${conf} lieux sont confirmés par une source publique ; les autres sont déduits de la présence d'une unité et restent à vérifier.</p>
+      </div>`;
+      return;
+    }
+    const sel = selection[s.id] || {};
+    const emp = (s.employeurs || []).slice(0, 10);
+    const row = (label, a, b, unit = "") => `<tr><td>${label}</td><td class="n">${fmt(a, unit)}</td><td class="n">${fmt(b, unit)}</td></tr>`;
+    const tag = `<span class="tag" style="background:var(${armeeVar(s.armee_soutenue)})">${esc(s.armee_soutenue)}</span>`;
+    const gmaps = `https://www.openstreetmap.org/?mlat=${s.latitude}&mlon=${s.longitude}#map=12/${s.latitude}/${s.longitude}`;
+    el.innerHTML = `
+      <div class="d-head">
+        <div class="eyebrow">${tag}<span class="tag light">${esc(s.type_structure)}</span><span class="tag light">${esc(s.zone)}</span>
+          ${s.source_confiance === "deduite" ? `<span class="mark ded">à confirmer</span>` : ""}</div>
+        <h2>${esc(s.nom)}</h2>
+        <div class="units">${esc(s.commune || "")}${s.departement ? " (" + esc(s.departement) + ")" : ""}${s.unites_soutenues ? " · " + esc(s.unites_soutenues) : ""}</div>
+        ${s.cma_rattachement ? `<div class="units">Rattachement : ${esc(s.cma_rattachement)}</div>` : ""}
+        <div class="actions">
+          <button class="btn keep" id="b-keep" aria-pressed="${sel.statut === "retenue"}">Retenir</button>
+          <button class="btn drop" id="b-drop" aria-pressed="${sel.statut === "ecartee"}">Écarter</button>
+          <button class="btn" id="b-close">Fermer</button>
+        </div>
+        <label class="flabel" for="note" style="margin-top:6px">Notes</label>
+        <textarea id="note" placeholder="Impressions, contacts, points à vérifier…">${esc(sel.note || "")}</textarea>
+      </div>
+
+      <div class="section">
+        <h3>Accès</h3>
+        <div class="access">
+          <span class="k">TGV</span><span class="v">${esc(s.gare_tgv || "pas de TGV")}</span><span class="t ${tcls(s.gare_tgv_min, 20, 45)}">${s.gare_tgv_min != null ? fmt(s.gare_tgv_min, "min") : "–"}</span>
+          <span class="k">Avion</span><span class="v">${esc(s.aeroport || "–")}</span><span class="t ${tcls(s.aeroport_min, 30, 60)}">${fmt(s.aeroport_min, "min")}</span>
+          <span class="k">Hub</span><span class="v">${esc(s.aeroport_international || "–")}</span><span class="t ${tcls(s.aeroport_international_min, 45, 90)}">${fmt(s.aeroport_international_min, "min")}</span>
+          <span class="k">Ville</span><span class="v">${esc(s.grande_ville || "–")} <small style="color:var(--muted)">${fmt(s.grande_ville_pop)} hab.</small></span><span class="t ${tcls(s.grande_ville_min, 25, 50)}">${fmt(s.grande_ville_min, "min")}</span>
+        </div>
+        <div class="src">Temps estimés en voiture, hors bouchons (ordre de grandeur).</div>
+      </div>
+
+      <div class="section">
+        <h3>Vivre sur place</h3>
+        <table class="dual">
+          <tr><th></th><th><span class="zone-key"><i style="background:var(--velo)"></i>30 min vélo</span></th><th><span class="zone-key"><i style="background:var(--voiture)"></i>30 min voiture</span></th></tr>
+          ${row("Habitants", s.population_zone_velo, s.population_zone_voiture)}
+          ${row("Prix moyen m²", s.prix_m2_zone_velo, s.prix_m2_zone_voiture, "€")}
+          ${row("Crèches", s.creches_velo, s.creches_voiture)}
+          ${row("Écoles maternelles", s.ecoles_maternelles_velo, s.ecoles_maternelles_voiture)}
+          ${row("Écoles élémentaires", s.ecoles_elementaires_velo, s.ecoles_elementaires_voiture)}
+          ${row("Collèges", s.colleges_velo, s.colleges_voiture)}
+          ${row("Lycées", s.lycees_velo, s.lycees_voiture)}
+        </table>
+        <div class="src">Commune : ${fmt(s.population_commune)} hab. · appartement ${fmt(s.prix_m2_appart_commune, "€/m²")} · maison ${fmt(s.prix_m2_maison_commune, "€/m²")}</div>
+      </div>
+
+      <div class="section">
+        <h3>Culture et sorties</h3>
+        <table class="dual">
+          <tr><th></th><th>vélo</th><th>voiture</th></tr>
+          ${row("Cinémas", s.cinema_velo, s.cinema_voiture)}
+          ${row("Écrans de cinéma", s.ecrans_cinema_velo, s.ecrans_cinema_voiture)}
+          ${row("Théâtres, scènes, opéras", s.spectacle_velo, s.spectacle_voiture)}
+          ${row("Musées, centres d'art", s.musee_velo, s.musee_voiture)}
+          ${row("Festivals", s.festivals_velo, s.festivals_voiture)}
+          ${row("Bibliothèques", s.bibliotheque_velo, s.bibliotheque_voiture)}
+          ${row("Conservatoires", s.conservatoire_velo, s.conservatoire_voiture)}
+          ${row("Librairies", s.librairie_velo, s.librairie_voiture)}
+          ${row("Monuments historiques", s.monument_velo, s.monument_voiture)}
+        </table>
+      </div>
+
+      <div class="section">
+        <h3>Emploi ingénieur (30 min voiture)</h3>
+        <div><span class="sector">${esc(s.secteur_dominant || "Peu d'industrie recensée")}</span></div>
+        <div class="metiers">${esc(s.metiers_ingenieur || "")}</div>
+        <table class="dual">
+          <tr><th></th><th>vélo</th><th>voiture</th></tr>
+          ${row("Établissements ≥ 50 salariés", s.employeurs_50plus_velo, s.employeurs_50plus_voiture)}
+          <tr><td>Emplois estimés</td><td class="n"></td><td class="n">${fmt(s.emplois_estimes_voiture)}</td></tr>
+          <tr><td>Sites aéro / naval / défense</td><td class="n"></td><td class="n">${fmt(s.employeurs_aero_defense)}</td></tr>
+        </table>
+        ${emp.length ? `<ol class="emp">${emp.map(e => `<li>${esc(e.nom)} <small>· ${esc(e.secteur)} · ${esc(e.effectif)} sal. · ${esc(e.commune)} (${fmt(e.distance_km, "km")})</small></li>`).join("")}</ol>` : ""}
+      </div>
+
+      <div class="section src">
+        ${s.remarques ? `<div>${esc(s.remarques)}</div>` : ""}
+        <div>${s.source_url ? `<a href="${esc(s.source_url)}" target="_blank" rel="noopener">Source du lieu</a> · ` : ""}<a href="${gmaps}" target="_blank" rel="noopener">Voir sur OpenStreetMap</a></div>
+      </div>`;
+
+    el.querySelector("#b-close").addEventListener("click", () => { state.selected = null; drawFocus(null); setSheet("none"); renderAll(); });
+    const kb = el.querySelector("#b-keep"), db_ = el.querySelector("#b-drop");
+    kb.addEventListener("click", () => writeSel(s.id, { statut: sel.statut === "retenue" ? "" : "retenue" }));
+    db_.addEventListener("click", () => writeSel(s.id, { statut: sel.statut === "ecartee" ? "" : "ecartee" }));
+    const note = el.querySelector("#note");
+    note.addEventListener("change", () => { if ((sel.note || "") !== note.value) writeSel(s.id, { note: note.value }); });
+  }
+
+  // ------------------------------------------------------------ tableau comparatif
+  const TCOLS = [
+    ["nom", "Lieu", false], ["armee_soutenue", "Armée", false], ["commune", "Commune", false],
+    ["gare_tgv_min", "TGV (min)", true], ["aeroport_min", "Aéroport (min)", true], ["grande_ville_min", "Grande ville (min)", true],
+    ["population_zone_velo", "Hab. vélo", true], ["prix_m2_zone_voiture", "€/m² zone", true],
+    ["creches_velo", "Crèches vélo", true], ["ecoles_maternelles_velo", "Maternelles vélo", true],
+    ["cinema_voiture", "Cinémas", true], ["festivals_voiture", "Festivals", true],
+    ["employeurs_50plus_voiture", "Employeurs ingé", true], ["secteur_dominant", "Secteur dominant", false],
+  ];
+  let tsort = { k: "nom", dir: 1 };
+  function renderTable() {
+    const wrap = document.getElementById("table-view");
+    const rows = current.slice().sort((a, b) => {
+      const x = a[tsort.k], y = b[tsort.k];
+      if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
+      return (typeof x === "number" ? x - y : String(x).localeCompare(String(y), "fr")) * tsort.dir;
+    });
+    const maxes = {};
+    TCOLS.forEach(([k, , num]) => { if (num) maxes[k] = Math.max(1, ...rows.map(r => r[k] || 0)); });
+    wrap.innerHTML = `<table class="cmp"><thead><tr>${TCOLS.map(([k, l, num]) => `<th class="${num ? "num" : ""}" data-k="${k}">${esc(l)}${tsort.k === k ? (tsort.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}<th>Statut</th></tr></thead>
+      <tbody>${rows.map(r => {
+        const st = (selection[r.id] || {}).statut;
+        return `<tr data-id="${esc(r.id)}">${TCOLS.map(([k, , num]) => num
+          ? `<td class="num">${fmt(r[k])}${r[k] != null ? `<span class="bar" style="width:${Math.round(28 * r[k] / maxes[k])}px"></span>` : ""}</td>`
+          : `<td>${k === "armee_soutenue" ? `<span class="zone-key"><i style="background:var(${armeeVar(r[k])})"></i>${esc(r[k])}</span>` : esc(r[k] || "")}</td>`).join("")}
+          <td>${st === "retenue" ? `<span class="mark keep">Retenu</span>` : st === "ecartee" ? `<span class="mark drop">Écarté</span>` : ""}</td></tr>`;
+      }).join("")}</tbody></table>`;
+    wrap.querySelectorAll("th[data-k]").forEach(th => th.addEventListener("click", () => {
+      const k = th.dataset.k; tsort = { k, dir: tsort.k === k ? -tsort.dir : 1 }; renderTable();
+    }));
+    wrap.querySelectorAll("tr[data-id]").forEach(tr => tr.addEventListener("click", () => select(tr.dataset.id, true)));
+  }
+
+  function setView(v) {
+    state.view = v;
+    try { localStorage.setItem("ssa-view", v); } catch (e) {}
+    document.getElementById("v-map").setAttribute("aria-pressed", String(v === "map"));
+    document.getElementById("v-table").setAttribute("aria-pressed", String(v === "table"));
+    document.getElementById("table-view").hidden = v !== "table";
+    document.getElementById("jump").hidden = v === "table";
+    document.getElementById("legend").hidden = v === "table";
+    if (v === "table") renderTable(); else setTimeout(() => map.invalidateSize(), 0);
+  }
+  document.getElementById("v-map").addEventListener("click", () => setView("map"));
+  document.getElementById("v-table").addEventListener("click", () => setView("table"));
+
+
+  // ------------------------------------------------------------ téléphone : onglets et fiche coulissante
+  const mq = window.matchMedia("(max-width: 720px)");
+  const isMobile = () => mq.matches;
+  let mtab = "map";
+  function setTab(t) {
+    mtab = t;
+    document.body.dataset.mtab = t;
+    document.querySelectorAll("#mnav button").forEach(b => b.setAttribute("aria-current", String(b.dataset.tab === t)));
+    if (t !== "map") setSheet("none", true);
+    else if (state.selected) setSheet("peek");
+    renderList();
+    if (t === "map") setTimeout(() => map.invalidateSize(), 0);
+  }
+  function setSheet(mode, keep) {
+    document.body.classList.toggle("sheet-peek", mode === "peek");
+    document.body.classList.toggle("sheet-full", mode === "full");
+    if (mode !== "full") document.getElementById("dossier-body").scrollTop = 0;
+  }
+  document.querySelectorAll("#mnav button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
+  document.getElementById("apply-m").addEventListener("click", () => setTab("map"));
+  const handle = document.getElementById("sheet-handle");
+  handle.addEventListener("click", () => setSheet(document.body.classList.contains("sheet-full") ? "peek" : "full"));
+  // Glisser la fiche vers le haut pour l'agrandir, vers le bas pour la réduire puis la fermer.
+  let y0 = null;
+  const dossier = document.getElementById("dossier");
+  dossier.addEventListener("touchstart", e => {
+    const body = document.getElementById("dossier-body");
+    const onHead = e.target.closest(".sheet-handle, .d-head");
+    if (onHead || !document.body.classList.contains("sheet-full") || body.scrollTop <= 0) y0 = e.touches[0].clientY;
+    else y0 = null;
+  }, { passive: true });
+  dossier.addEventListener("touchend", e => {
+    if (y0 === null) return;
+    const dy = e.changedTouches[0].clientY - y0;
+    y0 = null;
+    if (Math.abs(dy) < 40) return;
+    const full = document.body.classList.contains("sheet-full");
+    if (dy < 0) setSheet("full");
+    else if (full) setSheet("peek");
+    else { state.selected = null; drawFocus(null); setSheet("none"); renderAll(); }
+  }, { passive: true });
+  mq.addEventListener("change", () => { setTab("map"); if (!isMobile()) setSheet("none"); map.invalidateSize(); });
+  document.body.dataset.mtab = "map";
+
+  // Thème : recolore la carte quand le thème change
+  const recolor = () => {
+    worldLayer.setStyle(geoStyle().world); depLayer.setStyle(geoStyle().dep);
+    drawFocus(state.selected && byId.get(state.selected)); renderAll();
+  };
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", recolor);
+  new MutationObserver(recolor).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  document.getElementById("subtitle").textContent = `${SITES.length} centres médicaux, antennes et hôpitaux des armées · données publiques ${DATA.maj || ""}`;
+  setView(isMobile() ? "map" : state.view);
+  renderAll();
+  if (profil) useProfile(profil); else showLogin();
+})();
+</script>
